@@ -1,0 +1,19 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="MonoDevelop.Default" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Script\Province.cs">
+    <Files>
+      <File FileName="Assets\Script\StrategicAI.cs" Line="7" Column="24" />
+      <File FileName="Assets\Script\GameLogic.cs" Line="62" Column="1" />
+      <File FileName="Assets\Script\TacticalAI.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\UnitGroup.cs" Line="129" Column="1" />
+      <File FileName="Assets\Script\Province.cs" Line="22" Column="4" />
+      <File FileName="Assets\Script\Unit.cs" Line="64" Column="17" />
+      <File FileName="Assets\Script\Support.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\DataStructures.cs" Line="1" Column="1" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
