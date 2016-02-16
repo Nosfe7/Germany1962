@@ -3,19 +3,23 @@ using System.Collections;
 using System.Collections.Generic;
 
 
-						/*GRAFO*/
+
+
+
+
+						/*GRAFO DIRETTO*/
 
 //nodo
 public class Node {
 
-	int Id;
+	int id;
 
 	public Node(int i){
-		Id = i;
+		id = i;
 	}
 
 	public int ID {
-		get {return Id;}
+		get {return id;}
 	}
 }
 
@@ -24,28 +28,36 @@ public class Node {
 //Vertice 
 public class Vertex {
 
-	Node A;
-	Node B;
+	Node start;
+	Node end;
+	float cost;
 
-	public Vertex (Node a, Node b ){
-		A = a;
-		B = b;
+	public Vertex (Node s, Node e , float c){
+		start = s;
+		end = e;
+		cost = c;
+	}
+	
+
+	public Node START{
+		get{return start;}
 	}
 
-	public Node getA (){
-		return A;
+	public Node END{
+		get{return end;}
 	}
 
-	public Node getB() {
-		return B;
+	public float Cost {
+		get{return cost;}
+		set{cost = value;}
 	}
 }
 
-//grafo indiretto
+//grafo 
 public class Graph {
 
-	protected List<Node> nodes;
-	protected List<Vertex> vertices;
+	public List<Node> nodes;
+	public List<Vertex> vertices;
 	
 
 	public Graph () {
@@ -59,25 +71,13 @@ public class Graph {
 		nodes.Add (node);
 	}
 
-	public void AddVertex(Vertex vertex) {
+	public void AddVertex(int start, int end, float cost) {
 
-		vertices.Add (vertex);
+		vertices.Add (new Vertex(GetNode(start),GetNode(end),cost));
 	}
+	
 
-	public bool VertexExists(Node a, Node b) {
-
-		foreach (Vertex vertex in vertices) {
-			if (vertex.getA () == a && vertex.getB () == b)
-				return true;
-			else if (vertex.getB () == a && vertex.getA() == b) 
-				return true;
-
-		}
-
-		return false;
-	}
-
-	public Node getNode(int ID) {
+	public Node GetNode(int ID) {
 
 		foreach (Node node in nodes)
 			if (node.ID == ID)
@@ -86,78 +86,95 @@ public class Graph {
 		return null;
 	}
 
-	public List<Node> getNeighbours(Node node){
+	public List<Node> GetNeighbours(int ID){
 
 		List<Node> neighbours = new List<Node> ();
 
 		foreach (Vertex vertex in vertices) {
-			if (vertex.getA() == node) 
-				neighbours.Add(vertex.getB());
-			else if (vertex.getB() == node)
-				neighbours.Add(vertex.getA());
-
+			if (vertex.START.ID == ID) 
+				neighbours.Add(vertex.END);
 		}
 
 		return neighbours;
 
 	}
 
-	bool process(Node node,Func<Node,bool> method) {
+	//Vertici a partire dal nodo ID
+	public List<Vertex> GetVertices(int ID){
 
-		return method.Invoke(node);
-	}
+		List<Vertex> connections = new List<Vertex> ();
 
-	//ricerca per ampiezza
-	public Node BFSSearch(Node start,Func<Node,bool> method) {
-
-
-		List<Node> visited = new List<Node> ();
-
-		Queue queue = new Queue ();
-		queue.Enqueue (start);
-		visited.Add (start);
-
-		while (queue.Count > 0) {
-
-			Node current = (Node)queue.Dequeue();
-
-			if (process(current,method))
-				return current;
-			else
-				foreach (Node neighbour in getNeighbours(current))
-					if (!visited.Contains(neighbour)){
-						queue.Enqueue(neighbour);
-						visited.Add(neighbour);
-				}
+		foreach (Vertex vertex in vertices) {
+			if (vertex.START.ID == ID)
+				connections.Add(vertex);
 		}
 
+		return connections;
+	}
+
+	//Vertice dal nodo A al nodo B 
+	public Vertex GetVertex(int A, int B ) {
+
+		foreach (Vertex vertex in vertices) 
+			if (vertex.START.ID == A && vertex.END.ID == B)
+				return vertex;
 		return null;
 	}
 
-	//attraversamento in ampiezza
-	public void BFSTraversal(Node start,int limit, Func<Node,bool> method) {
+	public void removeVertex(Vertex vertex) {
 
-		List<Node> visited = new List<Node> ();
-		
+		vertices.Remove (vertex);
+	}
+	
+
+
+	//Calcolo distanza tra due nodi con una ricerca breadth-first
+	public int Distance(int A, int B) {
+
+		int distance = 0;
+
+		//con un dizionario mantengo l'informazione sia del nodo visitato che del suo genitore
+		Dictionary<int,int> visited = new Dictionary<int,int> ();
+
 		Queue queue = new Queue ();
-		queue.Enqueue (start);
-		visited.Add (start);
+		queue.Enqueue (GetNode(A));
+		visited.Add (A, -1);
+
+		Node current = null;
 		
 		while (queue.Count > 0) {
 			
-			Node current = (Node)queue.Dequeue();
-			
-			process(current,method);
+			current = (Node)queue.Dequeue();
 
-			foreach (Node neighbour in getNeighbours(current))
-			if (!visited.Contains(neighbour)){
-				queue.Enqueue(neighbour);
-				visited.Add(neighbour);
+
+			if (current.ID == B)
+				break;
+			else {
+				foreach (Node neighbour in GetNeighbours(current.ID))
+					if (!visited.ContainsKey(neighbour.ID)){
+						queue.Enqueue(neighbour);
+						visited.Add(neighbour.ID,current.ID);
+					}
 			}
+
+
 		}
 
 
+		//Ripercorre il percorso dal nodo attuale al nodo A
 
+		while (true) {
+			current = GetNode(visited[current.ID]);
+
+			if (current==null)
+				break;
+
+			distance ++;
+		}
+
+		return distance;
 	}
+	
+
 }
 

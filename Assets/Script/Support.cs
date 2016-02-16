@@ -8,8 +8,8 @@ public class Support : MonoBehaviour {
 	int airSupportPoints;
 	int countToReloadAir;
 	
-	int nukeSupportPoints;
-	int countToReloadNuke;
+	int artSupportPoints;
+	int countToReloadArt;
 	
 	
 	public int AirSupportPoints{
@@ -25,16 +25,16 @@ public class Support : MonoBehaviour {
 		}
 	}
 	
-	public int NukeSupportPoints{
+	public int ArtSupportPoints{
 		set{
 			if (value<=0)
-				nukeSupportPoints = 0;
+				artSupportPoints = 0;
 			else 
-				nukeSupportPoints = value;
+				artSupportPoints = value;
 		}
 		
 		get{
-			return nukeSupportPoints;
+			return artSupportPoints;
 		}
 	}
 	
@@ -42,53 +42,49 @@ public class Support : MonoBehaviour {
 	//evento al click
 	public void clickSupport (string type) {
 
-		int targetGroup = GameLogic.provinces[GameLogic.targetProvince].groupID;
+		Unit selectedUnit = GameLogic.selectedUnit;
+		Unit targetUnit = GameLogic.targetUnit;
 
-		if (type == "Air")
-			AirSupport (targetGroup);
-		else if (type == "Nuke")
-			NukeSupport (targetGroup);
+		if (selectedUnit.SupportPoints > 0) {
+
+			selectedUnit.SupportPoints -= 1;
+
+			if (type == "Air")
+				AirSupport (targetUnit);
+			else if (type == "Artillery")
+				ArtSupport (targetUnit);
+		}
+
+		else 
+			UnityEditor.EditorUtility.DisplayDialog("OFF-MAP SUPPORT","Can't call off-map support","Ok");
 	}
 
 	//Supporto aereo
-	public void AirSupport(int targetGroup){
-		Debug.Log ("air support request from"); Debug.Log (GameLogic.selectedProvince);
-		Debug.Log ("air bombing run to"); Debug.Log ( GameLogic.targetProvince);
+	public void AirSupport(Unit targetUnit){
 
 
-		if (airSupportPoints > 0 && GameLogic.ActionPoints >0) {
-			foreach (Unit u in GameLogic.groups[targetGroup].units)
-				u.defencePoints -= 4 - Random.Range (0, 3);
+		if (airSupportPoints > 0) {
+			targetUnit.Strength -= 4 - Random.Range (-3, 3);
 
 			AirSupportPoints -= 1;
 
 		} else {
-			if (airSupportPoints ==0)
 				UnityEditor.EditorUtility.DisplayDialog("SUPPORT POINTS","Not enough air support points","Ok");
-			else
-				UnityEditor.EditorUtility.DisplayDialog("ACTION POINTS","Not enough action points!","Ok");
 		}
 		
 	}
 	
-	//Supporto nucleare tattico
-	public void NukeSupport(int targetGroup){
-		Debug.Log ("tactical nuclear support request from"); Debug.Log (GameLogic.selectedProvince);;
-		Debug.Log ("tactical nuclear bombing run to"); Debug.Log ( GameLogic.targetProvince);
+	//Supporto di artiglieria
+	public void ArtSupport(Unit targetUnit){
 
 
-		if (nukeSupportPoints > 0 && GameLogic.ActionPoints>0) {
-			foreach (Unit u in GameLogic.groups[targetGroup].units)
-				u.defencePoints -= 7 - Random.Range (0, 3);
-			
-			
-			NukeSupportPoints -= 1;
+		if (artSupportPoints > 0) {
+			targetUnit.Strength -= 2 - Random.Range (-1, 1);
+
+			ArtSupportPoints -= 1;
 
 		} else {
-			if (nukeSupportPoints ==0)
-				UnityEditor.EditorUtility.DisplayDialog("SUPPORT POINTS","Not enough nuke support points","Ok");
-			else
-				UnityEditor.EditorUtility.DisplayDialog("ACTION POINTS","Not enough action points!","Ok");
+				UnityEditor.EditorUtility.DisplayDialog("SUPPORT POINTS","Not enough artillery support points","Ok");
 		}
 		
 	}
@@ -103,19 +99,19 @@ public class Support : MonoBehaviour {
 			if (countToReloadAir ==5){
 
 				countToReloadAir = 0;
-				airSupportPoints = 5;
+				airSupportPoints = 1;
 			}
 		}
 		
-		//Quando finiscono i punti supporto nucleare, li ricarico dopo 15 turni
-		if (nukeSupportPoints == 0){
+		//Quando finiscono i punti supporto artiglieria, li ricarico dopo 2 turni
+		if (artSupportPoints == 0){
 
-			countToReloadNuke ++;
+			countToReloadArt ++;
 
-			if (countToReloadNuke ==15){
+			if (countToReloadArt ==2){
 
 				countToReloadAir = 0;
-				nukeSupportPoints = 1;
+				artSupportPoints = 5;
 			}
 			
 			
@@ -123,11 +119,11 @@ public class Support : MonoBehaviour {
 	}
 
 	// Use this for initialization
-	void Start () {
-		airSupportPoints = 5;
-		nukeSupportPoints = 1;
+	void Awake () {
+		airSupportPoints = 1;
+		artSupportPoints = 5;
 		countToReloadAir = 0;
-		countToReloadNuke = 0;
+		countToReloadArt = 0;
 	}
 	
 	// Update is called once per frame

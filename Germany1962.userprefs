@@ -1,0 +1,31 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Script\StrategicAI.cs">
+    <Files>
+      <File FileName="Germany1962.sln" Line="1" Column="1" />
+      <File FileName="Assets\Script\StrategicAI.cs" Line="452" Column="3" />
+      <File FileName="Assets\Script\TacticalAI.cs" Line="262" Column="1" />
+      <File FileName="Assets\Script\GameLogic.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\Province.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\Unit.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\StrengthIndicator.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\DataStructures.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\Support.cs" Line="1" Column="1" />
+      <File FileName="Assets\Script\PathFinding.cs" Line="1" Column="1" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore>
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\PathFinding.cs" line="157" />
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\PathFinding.cs" line="275" />
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\StrategicAI.cs" line="461" />
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\StrategicAI.cs" line="298" />
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\StrategicAI.cs" line="174" />
+      <Breakpoint file="C:\Users\Nos\Documents\GitHub\Germany1962\Assets\Script\TacticalAI.cs" line="284" />
+    </BreakpointStore>
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches>
+    <Watch file="Assets\Script\StrategicAI.cs" line="97" offsetX="653" offsetY="1632" expression="GameLogic.influenceMap" liveUpdate="False" />
+    <Watch file="Assets\Script\StrategicAI.cs" line="97" offsetX="653" offsetY="1632" expression="GameLogic.influenceMap" liveUpdate="False" />
+  </MonoDevelop.Ide.DebuggingService.PinnedWatches>
+</Properties>

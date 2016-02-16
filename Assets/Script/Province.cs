@@ -1,16 +1,17 @@
-﻿using UnityEngine;
+using UnityEngine;
+
 using System.Collections;
 using System.Collections.Generic;
 
 public class Province : MonoBehaviour {
 	public factions owner;
+
+	//Identificativo
 	public int ID;
-
-
 	//Provincie vicine
-	public List<int> neighbours;
-	//Gruppo di unità nella provincia
-	public int groupID;
+	public List<Province> neighbours;
+	//Unità nella provincia
+	public Unit unit;
 	
 
 	public factions Owner{
@@ -23,29 +24,37 @@ public class Province : MonoBehaviour {
 				//Se cambio occupante, cambio bandiera
 				SpriteRenderer sr = GetComponent<SpriteRenderer> ();
 
-				if (value == factions.NATO)
-					sr.sprite = Resources.Load<Sprite> ("Graphics/Images/natoFlag");
-				else if (value == factions.WARSAW_PACT)
-					sr.sprite = Resources.Load<Sprite> ("Graphics/Images/redstar");
+				if (value == factions.RED)
+					sr.sprite = Resources.Load<Sprite> ("Graphics/Images/redhex");
+				else if (value == factions.BLUE)
+					sr.sprite = Resources.Load<Sprite> ("Graphics/Images/bluehex");
 				owner = value;
 		}
 
 	}
 
 
-	public void setGroup(int g){
-		GameLogic.groups[g].transform.parent = transform;
-		GameLogic.groups[g].transform.position = transform.position;
-		groupID = g;
+	public Unit Unit{
+
+		set {
+
+			unit = value;
+		}
+
+		get{return unit;}
+
 	}
-	
+
+	public List<Province> getNeighbours() {
+
+		return neighbours;
+	}
 
 	// Use this for initialization
 	void Start () {
-			
-		//Gruppo di unità
-		if (this.transform.childCount > 0)
-			groupID = this.transform.GetChild (0).GetComponent<UnitGroup> ().ID;
+
+		unit = transform.GetComponentInChildren<Unit> ();
+
 	}	
 	
 	// Update is called once per frame
@@ -59,18 +68,25 @@ public class Province : MonoBehaviour {
 	void OnMouseOver(){
 		if (GameLogic.player == GameLogic.turn){
 
-
-
 			if (owner == GameLogic.player && Input.GetMouseButton(0)) {
 
 
-				GameLogic.selectedProvince = ID;
-				Debug.Log (this);
+				GameLogic.selectedProvince = this;
+
+				if (GameLogic.selectedProvince.Unit!=null){
+					GameLogic.selectedUnit = GameLogic.selectedProvince.Unit;
+					GameLogic.selectBox.transform.position = GameLogic.selectedUnit.transform.position;
+				}
 			}
 
 			if (Input.GetMouseButton(1) && neighbours.Contains(GameLogic.selectedProvince)){
-				GameLogic.targetProvince = ID;
-				Debug.Log (this);
+
+				GameLogic.targetProvince = this;
+
+				if (GameLogic.targetProvince.Unit!=null){
+					GameLogic.targetUnit = GameLogic.targetProvince.Unit;
+					GameLogic.targetBox.transform.position = GameLogic.targetUnit.transform.position;
+				}
 
 			}
 

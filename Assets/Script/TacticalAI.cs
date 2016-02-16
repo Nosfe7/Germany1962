@@ -1,4 +1,87 @@
-﻿
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+
+public class Agent {
+	
+	Unit unit;
+	PathFinding pathfinding;
+	InfluenceMap influenceMap;
+	List<PathFindingVertex> path;
+
+	public Agent (Unit u)  {
+		
+		unit = u;
+		pathfinding = PathFinding.getInstance ();
+		influenceMap = InfluenceMap.getInstance ();
+	}
+
+
+	public Unit Unit{
+
+		get{return unit;}
+	}
+
+	//Valutà l'eseguibilità dell'ordine sulla base del percorso calcolato
+	public bool IsOrderFeasible(int targetID){
+
+		//Se l'unità non può raggiungere l'obiettivo (percorso non esiste), allora restituisce false
+		
+		path = pathfinding.GetPath (influenceMap.influenceMapGraph,
+			                        unit.Province.ID,targetID);
+
+		if (path == null) return false;
+
+		return  true;
+	}
+
+	//Esegue l'ordine
+	public void ExecuteOrder(int targetID){
+
+
+		//Aggiornamento mappa di influenza
+		influenceMap.Update ();
+
+
+		//Se non c'è percorso l'unità tiene la posizione. Altrimenti segue il percorso
+		foreach (PathFindingVertex connection in path){
+
+			PathFindingNode end = connection.END;
+
+			Unit frontUnit = GameLogic.GetUnitInProvince(end.ID);
+			factions frontFaction = GameLogic.GetProvinceFaction(end.ID);
+
+			if (unit.ActionPoints == 0)
+				break;
+
+			//Se nella posizione vi è una unità nemica, decide come attaccare
+			if ( frontUnit!=null && frontFaction == GameLogic.player){
+
+				Decision root = new NotEnemyStronger(unit, frontUnit);
+				
+				Action result = (Action) root.makeDecision ();
+
+				if (!result.execute())
+					break;
+
+			}
+
+			//Altrimenti, muove verso la posizione
+			else if (frontUnit==null) 
+				unit.Move(GameLogic.provinces[end.ID]);
+
+		}
+
+	
+	}
+
+
+}
+
+
+
 //generico nodo
 interface DecisionTreeNode{
 
@@ -7,92 +90,79 @@ interface DecisionTreeNode{
 
 //generica azione
 abstract class Action : DecisionTreeNode {
-
+	
 	public DecisionTreeNode makeDecision(){
-
+		
 		return this;
 	}
-
+	
 	abstract public bool execute();
 }
 
 //generica decisione
 abstract class Decision : DecisionTreeNode {
-
+	
 	protected DecisionTreeNode trueNode;
 	protected DecisionTreeNode falseNode;
-
+	
 	abstract protected  DecisionTreeNode getBranch();
-
+	
 	public DecisionTreeNode makeDecision(){
-
+		
 		//prende uno dei nodi figli
 		DecisionTreeNode branch = getBranch ();
-
+		
 		//decisione corrispondente al figlio
 		return branch.makeDecision ();
 	}
 }
 
-
-//si chiede se il gruppo attaccato è debole
-class isTargetWeaker : Decision {
-
-	public static int targetID;
-	public static int attackerID;
-
-	public isTargetWeaker (int aID, int tID) {
-
-		attackerID = aID;
-		targetID = tID;
-
-		trueNode = new NoSupport ();
-		falseNode = new isAirSupportAvailable ();
-
+class NotEnemyStronger : Decision {
+	
+	Unit attacker;
+	Unit target;
+	
+	public NotEnemyStronger(Unit a, Unit t) {
+		
+		attacker = a;
+		target = t;
+		
+		
+		trueNode = new isAirSupportAvailable (attacker, target);
+		falseNode = new NoAction ();
+		
 	}
-
+	
 	protected override DecisionTreeNode getBranch () {
-
-		float attackStrength = 0;
-
-	 	foreach (Unit u in GameLogic.groups[attackerID].units)
-			attackStrength += u.AttackPoints;
-
-		float defenceStrength = 0;
-
-		foreach (Unit u in GameLogic.groups[targetID].units)
-			defenceStrength += u.DefencePoints;
-
-	
-		if (defenceStrength <= attackStrength / 2)
+		
+		
+		
+		if (attacker.Strength >= target.Strength)
 			return trueNode;
-		else
+		
+		else 
 			return falseNode;
-
 	}
-}
-
-//Attacco senza supporto
-class NoSupport : Action {
 	
-
-	public NoSupport () {}
-
-	public override bool execute ()
-	{
-		return GameLogic.groups [isTargetWeaker.attackerID].Attack (isTargetWeaker.targetID);
-	}
-
 }
 
-//Controlla se è disponibile supporto aereo
+
+//Controlla se è disponibile il supporto aereo
 class isAirSupportAvailable : Decision {
 
+	Unit attacker;
+	Unit target;
 
-	public isAirSupportAvailable() {
 
-		trueNode = new AirAttack ();
-		falseNode = new isNukeSupportAvailable ();
+
+	public isAirSupportAvailable(Unit a, Unit t) {
+
+		attacker = a;
+		target = t;
+
+
+		trueNode = new AirAttack(attacker, target);
+		falseNode = new isArtSupportAvailable(attacker, target);
 
 	}
 
@@ -110,61 +180,153 @@ class isAirSupportAvailable : Decision {
 //Attacco con supporto aereo
 class AirAttack : Action {
 
+	Unit attacker;
+	Unit target;
 
-	public AirAttack() {}
+
+	public AirAttack(Unit a, Unit t) {
+
+		attacker = a;
+		target = t;
+	}
 
 	public override bool execute () {
 
-		GameLogic.enemySupport.AirSupport (isTargetWeaker.targetID);
 
-		return GameLogic.groups [isTargetWeaker.attackerID].Attack (isTargetWeaker.targetID);
+		GameLogic.enemySupport.AirSupport (target);
+
+		List<Unit> attackSupporters = new List<Unit>();
+
+		//Unità che potrebbero supportare l'attacco
+		foreach (Province n in target.Province.getNeighbours()){
+			if (n.Unit!=null && n.Owner == attacker.Faction 
+			    && n!=attacker && n.Unit.Strength >= 4)
+				attackSupporters.Add(n.Unit);
+		}
+		
+		string type = "Limited attack";
+		
+		if (attackSupporters.Count > 0)
+			type = "Total assault"; 
+		
+		return attacker.Attack (target,type, attackSupporters);
 	}
 }
 
-//Controlla se è disponibile il supporto nucleare 
-class isNukeSupportAvailable : Decision {
+//Controlla se è disponibile il supporto d'artiglieria 
+class isArtSupportAvailable : Decision {
 
-	public isNukeSupportAvailable() {
-		
-		trueNode = new NukeAttack ();
-		falseNode = new NoAction ();
+	Unit attacker;
+	Unit target;
+
+
+
+	public isArtSupportAvailable(Unit a, Unit t) {
+
+		attacker = a;
+		target = t;
+
+
+		trueNode = new ArtilleryAttack (attacker, target);
+		falseNode = new NoSupport (attacker, target);
 		
 	}
 	
 	protected override DecisionTreeNode getBranch () {
+
+
 		
-		if (GameLogic.enemySupport.NukeSupportPoints > 0)
+		if (GameLogic.enemySupport.ArtSupportPoints > 0)
 			
 			return trueNode;
-		else
+
+		else 
 			return falseNode;
 	}
 	
 }
 
-//Attacco con supporto nucleare
-class NukeAttack : Action {
+//Attacco con supporto artiglieria
+class ArtilleryAttack : Action {
 
-	public NukeAttack() {}
+	Unit attacker; 
+	Unit target;
+
+
+	public ArtilleryAttack(Unit a, Unit t) {
+
+		attacker = a;
+		target = t;
+	}
 	
 	public override bool execute () {
+
+		GameLogic.enemySupport.ArtSupport(target);
+
 		
-		GameLogic.enemySupport.NukeSupport (isTargetWeaker.targetID);
+		List<Unit> attackSupporters = new List<Unit>();
 		
-		return GameLogic.groups [isTargetWeaker.attackerID].Attack (isTargetWeaker.targetID);
+		//Unità che potrebbero supportare l'attacco
+		foreach (Province n in target.Province.getNeighbours()){
+			if (n.Unit!=null && n.Owner == attacker.Faction 
+			    && n!=attacker && n.Unit.Strength >= 4)
+				attackSupporters.Add(n.Unit);
+		}
+		
+		string type = "Limited attack";
+		
+		if (attackSupporters.Count > 0)
+			type = "Total assault"; 
+		
+		return attacker.Attack (target,type, attackSupporters);
 	}
 
 }
+
+//Attacco senza supporto
+class NoSupport : Action {
+	
+	Unit attacker;
+	Unit target;
+	
+	public NoSupport (Unit a, Unit t) {
+
+		attacker = a;
+		target = t;
+
+	}
+	
+	public override bool execute ()
+	{
+		List<Unit> attackSupporters = new List<Unit>();
+		
+		//Unità che potrebbero supportare l'attacco
+		foreach (Province n in target.Province.getNeighbours()){
+			if (n.Unit!=null && n.Owner == attacker.Faction 
+			    && n!=attacker && n.Unit.Strength >= 4)
+				attackSupporters.Add(n.Unit);
+		}
+		
+		string type = "Limited attack";
+		
+		if (attackSupporters.Count > 0)
+			type = "Total assault"; 
+		
+		return attacker.Attack (target,type, attackSupporters);
+	}
+	
+}
+
+
+
 
 
 //Nessuna azione
 class NoAction : Action {
 
-	public NoAction() {}
-	
 	public override bool execute () {
-		
 		return false;
 	}
-
 }
+
+

@@ -1,30 +1,10 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 
-//Unità sulla mappa  
-public class MapAgent {
 
-	public int ID;
-	public int positionID;	
-	public factions faction;
-
-	public MapAgent(int p, int i, factions f){
-		positionID = p;
-		ID = i;
-		faction = f;
-	}
-
-	public float calculateInfluence(){
-		float influence = 0;
-
-		foreach (Unit u in GameLogic.groups[ID].units)
-			influence += u.AttackPoints + u.DefencePoints;
-
-		return influence;
-	}
-}
 
 //Posizione sulla mappa
 public class MapPosition {
@@ -36,220 +16,493 @@ public class MapPosition {
 		influence = inf;
 	}
 
-	public List<int> getNeighbours(){
-		List<int> neighboursIDs = new List<int> ();
+	public List<MapPosition> getNeighbours(){
+		List<MapPosition> neighbours = new List<MapPosition> ();
 
 
-		foreach (int p in GameLogic.provinces[ID].neighbours) {
-			neighboursIDs.Add (p);
+		InfluenceMap influenceMap = InfluenceMap.getInstance ();
+
+		foreach (Province p in GameLogic.GetProvinceNeighbours(ID)) {
+			neighbours.Add (influenceMap.GetPosition(p.ID));
 		}
 
-		return neighboursIDs;
+		return neighbours;
 
 	}
 }
-
 
 
 //Mappa di influenza
-public static class InfluenceMap {
+public class InfluenceMap {
 
-	public static List<MapAgent> agents; 
-	public static List<MapPosition> positions;
-	public static Graph mapGraph;
+	public List<MapPosition> positions;
+	public Graph influenceMapGraph;
+	List<Vertex> removedVertices;
 
+	private static InfluenceMap instance;
 
-
-	public static void InitMap(){
-
-		agents = new List<MapAgent> ();
+	private InfluenceMap() {
 		positions = new List<MapPosition> ();
-
-		foreach (UnitGroup g in GameLogic.groups) 
-			agents.Add (new MapAgent (g.province,g.ID,g.faction));
-
-
+		
+		//Posizioni sulla mappa di influenza
 		for (int i=0; i<GameLogic.provinces.Length; i++) 
 			positions.Add (new MapPosition(i,0));
 
-
-		//Creo grafo della mappa di influenza
-		mapGraph = new Graph ();
-
-		foreach (MapPosition pos in positions) {
-
-			mapGraph.AddNode(new Node(pos.ID));
-
-			foreach (int n in pos.getNeighbours()) {
-				if (!mapGraph.VertexExists(new Node(pos.ID),new Node(n)))
-					mapGraph.AddVertex(new Vertex(new Node(pos.ID),new Node(n)));
-			}
-		}
+		removedVertices = new List<Vertex> ();
 	}
 
 
-	public static  void Update() {
+	public static InfluenceMap getInstance() {
 
-		//azzero l'influenza nelle posizioni
+		if (instance == null)
+			instance = new InfluenceMap ();
+
+		return instance;
+	}
+
+	public void BuildGraph() {
+
+		influenceMapGraph = new Graph ();
+		
 		foreach (MapPosition pos in positions) {
-
-			pos.influence = 0;
+			
+			influenceMapGraph.AddNode (new Node (pos.ID));
+		}
+		
+		foreach (MapPosition pos in positions){
+			
+			foreach (MapPosition n in pos.getNeighbours()) {
+				influenceMapGraph.AddVertex(pos.ID,n.ID,1);
+			}
 			
 		}
+	}
 
-		//ogni unità diffonde l'influenza nella posizione
-		foreach (MapAgent agent in agents){
+	public MapPosition GetPosition(int ID) {
 
-			//aggiorno la posizione dell'unità
-			agent.positionID = GameLogic.groups[agent.ID].province;
+		return positions [ID];
+	}
 
-			float agentInfluence = agent.calculateInfluence();
-			int mul = 1;
+	public float GetInfluenceIn(int ID) {
 
-			//Sommo influenza per le unità delle IA, sottraggo influenza per le unità del giocatore
-			if (GameLogic.provinces[agent.positionID].Owner == GameLogic.player ) 
-				mul = -1;
+		return positions [ID].influence;
+	}
 
-			SpreadInfluence(0,agent.positionID,2,agentInfluence,mul);
+	public void Update () {
+
+		foreach (MapPosition pos in positions) {
+			
+			pos.influence = 0;
+			
+			foreach (Unit unit in GameLogic.units) {
+
+				if (unit != null) {
+					int distance = GameLogic.mapGraph.Distance (pos.ID, unit.Province.ID);
+
+					float strength = unit.Strength;
+
+					//Se è una unità IA, l'influenza per la provincia è calcolata come influenza corrente + (punti attacco unità / distanza da unità)
+					if (unit.Faction == GameLogic.enemy)
+						
+						pos.influence += strength / (distance + 1);
+						
+					//Se è una unità giocatore, l'influenza per la provincia è calcolata come influenza corrente - (punti difesa unità / distanza da unità)
+					else 
+						pos.influence -= strength / (distance + 1);
+
+
+				}
+
+			}
 		}
 
 
+		/*Aggiorno grafo in base alle informazioni della mappa di influenza*/
 
-	}
+		
+		foreach (Vertex vertex in removedVertices)
+			influenceMapGraph.AddVertex (vertex.START.ID, vertex.END.ID, 0.0f);
 
-	//calcola l'influenza nella posizione corrispondente a un nodo del grafo
-	static void calcInfluence(Node n, int mul) {
+		removedVertices.Clear ();
+		
+		foreach (Vertex vertex in influenceMapGraph.vertices){
+
+				float cost = 0;
+
+				if (GameLogic.GetProvinceFaction(vertex.END.ID) == GameLogic.GetProvinceFaction(vertex.START.ID) &&
+			    	GameLogic.GetUnitInProvince(vertex.END.ID)!=null)
+
+					removedVertices.Add (vertex);
+				
+
+				else 
+					
+					cost = 1 - (positions[vertex.END.ID].influence)/100;
 
 
-	}
+
+				vertex.Cost=cost;
+
+		}
+
+		foreach (Vertex vertex in removedVertices) 
+			influenceMapGraph.removeVertex (vertex);
 
 
-	//Diffonde l'influenza delle unità sulla mappa con un raggio ray e drop-off lineare (1/(d+1))
-	static void SpreadInfluence(int d, int positionID, int ray, float agentInfluence,int mul) {
-
-
-	}
-	
-
-}
-
-//Ordine generico
-abstract class Order {
-
-	public abstract void Execute ();
-
-}
-
-//Offensiva
-class Offensive : Order {
-
-	public int attackerID;
-	public int targetID;
-
-	public Offensive (int aID, int tID)  {
-
-		attackerID = aID;
-		targetID = tID;
-	}
-
-	//Conduce l'offensiva richiamando il decision tree del gruppo attaccante
-	public override void Execute(){
-
-		Decision root = new isTargetWeaker (attackerID, targetID);
-
-		Action result = (Action) root.makeDecision ();
-
+		
 	}
 
 }
 
 
+//Pianifica le azioni per il turno
+public class StrategicPlanner {
 
-//Piano strategico : gli ordini vengono dati alle singole unità
-static class Plan {
-	
+	int defendTarget;
+	int offensiveTarget;
 
-	//piano
-	static List<Order> plan;
+	public List<Agent> agents;
 
-	public static void Init(){
+	private static StrategicPlanner instance;
 
-		plan = new List<Order> ();
+	private StrategicPlanner() {
+		agents = new List<Agent> ();
+
+		offensiveTarget = SetOffensiveTarget ();
+		defendTarget = SetDefendTarget ();
+
+		foreach (Unit u in GameLogic.units) {
+			if (u.Faction == GameLogic.enemy)
+				agents.Add (new Agent (u));
+		}
+
+	}
+
+	public static StrategicPlanner getInstance() {
+
+		if (instance == null) 
+			instance = new StrategicPlanner ();
+
+		return instance;
+
+	}
+
+	//Seleziona obiettivo strategico da attaccare
+	int SetOffensiveTarget(){
+
+		int target = 0;
+
+		//Se l'IA è BLU, l'obiettivo è la capitale rossa
+		if (GameLogic.enemy == factions.BLUE) 
+			target = GameLogic.redCapital;
+		
+		//Se l'IA è ROSSA, l'obiettivo è la capitale blu
+		if (GameLogic.enemy == factions.RED)
+			target = GameLogic.blueCapital;
+
+		return target;
+	}
+
+	//Seleziona obiettivo strategico da difendere
+	int SetDefendTarget(){
+		
+		int target = 0;
+		
+		//Se l'IA è ROSSA, la ritirata è verso la capitale rossa
+		if (GameLogic.enemy == factions.RED) 
+			target = GameLogic.redCapital;
+		
+		//Se l'IA è BLU, la ritirata è verso la capitale blu
+		if (GameLogic.enemy == factions.BLUE)
+			target = GameLogic.blueCapital;
+		
+		return target;
 	}
 
 
-	//trovo le unità del giocatore più deboli
-	public static List<MapAgent> getWeakestUnits() {
+	//Seleziona obiettivo da contrattaccare
+	int SetCounterattackTarget() {
 
+		int minDistance = 10 ;
+		Unit nearestUnit = null;
 
-		List<MapPosition> playerPositions = new List<MapPosition> ();
+		InfluenceMap influenceMap = InfluenceMap.getInstance ();
 
-		foreach (MapPosition position in InfluenceMap.positions)
-			if (GameLogic.provinces [position.ID].Owner == GameLogic.player)
-				playerPositions.Add (position);
+		/*Sceglie l'unità del giocatore più vicina entro 2 caselle dalla capitale alleata.
+		  Se vi è più di una unità alla stessa distanza, sceglie quella più pericolosa, ovvero quella con influenza più bassa nella provincia
+		*/
+		foreach (Unit u in GameLogic.units) {
 
-		playerPositions.ToArray ().OrderBy (p => Mathf.Abs (p.influence));
+			if (u.Faction == GameLogic.player) {
 
-		List<MapAgent> weakest = new List<MapAgent> ();
+				int distance = GameLogic.mapGraph.Distance (u.Province.ID, defendTarget);
 
-		for (int i=0; i<GameLogic.ActionPoints; i++) {
+				float influence = influenceMap.GetInfluenceIn (u.Province.ID);
 
-			foreach (MapAgent agent in InfluenceMap.agents)
-				if (agent.positionID == playerPositions[i].ID){
-					weakest.Add (agent);
-					break;
+				if (distance <= 2) {
+					if (distance < minDistance){
+						nearestUnit = u;
+						minDistance = distance;
+					}
+
+					else if (distance == minDistance && influence < influenceMap.GetInfluenceIn(nearestUnit.Province.ID)) {
+
+						nearestUnit = u;
+						minDistance = distance;
+					}
+				}
 			}
 
 		}
 
-		return weakest;
+		if (nearestUnit != null)
+			return nearestUnit.Province.ID;
+		return -1;
 
 	}
 
-	//controlla se c'è un'unità dell'IA nella posizione
-	static bool isAIUnit(Node n) {
 
-		int position = n.ID;
+	//sceglie le unità che andranno in attacco 
+	List<Agent> GetAttackers(){
 
-		foreach (MapAgent agent in InfluenceMap.agents)
-			if (agent.positionID == position && agent.faction == GameLogic.enemy)
-				return true;
 
-		return false;
-	}
+		List<Agent> attackers = new List<Agent> ();
 
-	//pianifica offensive
-	static List<Offensive> planOffensives(){
 
-		List<Offensive> offensives = new List<Offensive> ();
+		InfluenceMap influenceMap = InfluenceMap.getInstance ();
 
-		//trova una unità dell'IA più vicina alle unità più deboli del giocatore
-		foreach (MapAgent playerUnit in getWeakestUnits()) {
+		//Aggiornamento mappa di influenza
+		influenceMap.Update ();
 
-			Node AIUnitNode = InfluenceMap.mapGraph.BFSSearch(InfluenceMap.mapGraph.getNode(playerUnit.positionID),isAIUnit);
-		
-			foreach (MapAgent AIUnit in InfluenceMap.agents)
-				if (AIUnit.positionID == AIUnitNode.ID){
-					offensives.Add(new Offensive(AIUnit.ID,playerUnit.ID));
-					break;
+
+		/*Seleziona per l'attacco le unità più vicine alla capitale nemica 
+		Se due unità hanno la stessa distanza, sceglie quella con influenza più alta
+		*/
+
+		int minDistance = 10;
+		Agent nearestAgent = null;
+
+		foreach (Agent a in agents) {
+
+			Unit u = a.Unit;
+
+			int distance = GameLogic.mapGraph.Distance (u.Province.ID, offensiveTarget);
+
+			if (distance < minDistance) {
+				
+				nearestAgent = a;
+				minDistance = distance;
+
+			} else if (distance == minDistance) {
+
+				Unit nearestUnit = nearestAgent.Unit;
+
+				if (influenceMap.GetInfluenceIn (u.Province.ID) > 
+				    influenceMap.GetInfluenceIn (nearestUnit.Province.ID)) {
+
+					nearestAgent = a;
 				}
+			}
+
+		}
+			
+		attackers.Add (nearestAgent);
+			
+
+
+
+		//Seleziona per l'attacco l'unità con influenza più alta
+	
+		float maxInfluence = -10;
+		Agent strongestAgent = null;
+		
+		foreach (Agent a in agents) {
+
+			Unit u = a.Unit;
+
+
+			float influence = influenceMap.GetInfluenceIn (u.Province.ID);
+		
+			if (influence > maxInfluence) {
+			
+				strongestAgent = a;
+				maxInfluence = influence;
+			
+			}
+
 		}
 
-		return offensives;
+		if (!attackers.Contains(strongestAgent))
+			attackers.Add (strongestAgent);
+
+
+
+		return attackers;
+
+	}
+
+	//Sceglie le unità che si ritireranno
+
+
+	List<Agent> GetRetreaters(){
+
+		List<Agent> retreaters = new List<Agent>();
+		
+
+		List<Unit> threats = new List<Unit>();
+
+		foreach (Unit u in GameLogic.units) {
+
+			if (u!=null){
+
+				bool alliedInDefence = false;
+
+
+				if (u.Faction == GameLogic.player){
+
+					PathFinding pathfinding = PathFinding.getInstance();
+
+					List<PathFindingVertex> path = 
+						pathfinding.GetPath(GameLogic.mapGraph,
+						                            u.Province.ID,defendTarget);
+
+					foreach (PathFindingVertex connection in path){
+
+						PathFindingNode end = connection.END;
+
+						if (GameLogic.GetUnitInProvince(end.ID)!=null){
+							alliedInDefence = true;
+							break;
+						}
+					}
+
+					if (alliedInDefence == false)
+						threats.Add(u);
+				}
+
+			}
+		}
+
+
+
+
+		//Sceglie per la ritirata le unità  più vicine a una minaccia
+		foreach (Unit threat in threats)
+			foreach (Agent a in agents) {
+				
+				Unit u = a.Unit;
+
+				if (!retreaters.Contains(a)){
+
+					int threatLine = 
+						GameLogic.mapGraph.Distance(threat.Province.ID,
+					                            defendTarget);
+					int unitLine = 
+						GameLogic.mapGraph.Distance(u.Province.ID, 
+					                            defendTarget);
+
+					int distanceFromThreat = 
+						GameLogic.mapGraph.Distance (u.Province.ID, 
+					                             threat.Province.ID);
+				                                                      
+					
+					if (distanceFromThreat == 1 && threatLine<=unitLine)
+							retreaters.Add (a);
+
+				}
+			}
+
+		return retreaters;
+
+	}
+
+	//Sceglie le unità che  contrattaccheranno
+
+	List<Agent> GetCounterattackers(int target){
+
+		List<Agent> counterAttackers = new List<Agent>();
+
+
+		//Sceglie per il contrattacco le unità più vicine
+	
+		
+		foreach (Agent a in agents) {
+
+			Unit u = a.Unit; 
+
+			if (target != -1) {
+				
+				int distance = GameLogic.mapGraph.Distance (u.Province.ID, target);
+				
+				if (distance <= 1)
+					counterAttackers.Add (a);
+			}
+
+		}
+
+
+
+		return counterAttackers;
+
+	}
+
+	public void ExecutePlan() {
+
+		int counterAttackTarget = SetCounterattackTarget ();
+
+		//Pianifica le offensive
+		List<Agent> attackers = GetAttackers();
+
+		//Pianifica ritirate 
+		List<Agent> retreaters= GetRetreaters();
+
+		//Pianifica contrattacchi 
+		List<Agent> counterAttackers= GetCounterattackers(counterAttackTarget);
+
+		/*Possono esserci delle unità che sono sia tra gli attaccanti, che tra coloro
+		  che si ritirano o contrattaccano. Tuttavia ogni unità può ricevere un solo ordine: 
+		  la priorità è la ritirata, seguita dal contrattacco
+		*/
+
+		foreach (Agent u in retreaters){
+			attackers.Remove(u);
+			counterAttackers.Remove(u);
+		}
+
+		foreach (Agent u in counterAttackers){
+			attackers.Remove(u);
+		}
+
+	
+
+		//Esecuzione del piano
+		foreach (Agent attacker in attackers) 
+			if (attacker.IsOrderFeasible(offensiveTarget))
+				attacker.ExecuteOrder(offensiveTarget);
+
+		foreach (Agent retreater in retreaters) 
+			if (retreater.IsOrderFeasible(defendTarget))
+				retreater.ExecuteOrder(defendTarget);
+
+		foreach (Agent counterAttacker in counterAttackers)
+			if (counterAttacker.IsOrderFeasible(counterAttackTarget))
+				counterAttacker.ExecuteOrder(counterAttackTarget);
+
+
+
 	}
 	
 
-	//Esegue il piano
-	public static void ExecutePlan(){
-
-		foreach (Offensive off in planOffensives())
-			plan.Add (off);
-
-		foreach (Order ord in plan)
-			ord.Execute ();
-	}
-
-
 }
+
+
+
+
+
+
+
+
+
+
 
 
